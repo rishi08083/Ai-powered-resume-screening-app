@@ -1,86 +1,34 @@
-name: Full Deployment
+name: Build and Push Docker Image to ECR
 
 on:
   push:
     branches:
-      - dev
+      - main
 
 jobs:
-  deploy-backend:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Fetch Backend Variables and Create .env
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1 # change if needed
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: resume-screening-app
+          IMAGE_TAG: latest
         run: |
-          echo "Fetching backend environment variables..."
-          echo "${{ vars.BACKEND_ENV }}" > backend.env
-          echo "This is the content of the backend.env file:"
-          cat backend.env
-
-          echo "Fetching docker database environment variables..."
-          echo "${{ vars.DATABASE_ENV }}" > database.env
-          echo "This is the content of the database.env file:"
-          cat database.env
-
-      - name: SCP
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.IP }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.PRIVATE_KEY }}
-          source: "."
-          target: "Internship-2025/Resume-Screening-App/"
-
-      - name: SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.IP }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.PRIVATE_KEY }}
-          script: |
-            cd Internship-2025/Resume-Screening-App
-            docker compose up -d db
-            docker compose build backend
-            docker compose up -d --force-recreate backend
-            docker system prune -af
-
-  deploy-frontend:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Fetch Frontend Variables and Create .env
-        run: |
-          echo "Fetching frontend environment variables..."
-          echo "${{ vars.FRONTEND_ENV }}" > frontend.env
-          echo "${{ vars.FRONTEND_ENV }}" > Frontend/.env
-          echo "This is the content of the frontend.env file:"
-          cat frontend.env
-
-      - name: SCP
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.IP }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.PRIVATE_KEY }}
-          source: "."
-          target: "Internship-2025/Resume-Screening-App/"
-
-      - name: SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.IP }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.PRIVATE_KEY }}
-          script: |
-            cd Internship-2025/Resume-Screening-App
-            docker compose build frontend
-            docker compose up -d --force-recreate frontend
-            docker system prune -af 
-
-            
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
