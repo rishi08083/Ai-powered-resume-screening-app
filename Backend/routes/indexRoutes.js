@@ -12,8 +12,10 @@ const screeningRoutes = require("./screenRoutes");
 const mailRecruiter = require("./mailRecruiter.js");
 const analyticsRoutes = require("./analyticsRoutes.js");
 const parseResumeRoutes = require("./parsedResumeRoutes.js");
+const healthRoute = require("./healthRoute.js");
 
-router.get("/", homeRoutes);
+
+router.use("/", homeRoutes);
 router.use("/auth", authRoutes);
 router.use("/upload", uploadRoutes);
 router.use("/job", jobRoutes);
